@@ -1,0 +1,31 @@
+name: Deploy File Formatter Website
+
+on:
+  push:
+    branches:
+      - development
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Deploy to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT }}
+          protocol: ftp
+
+          local-dir: ./public/
+          server-dir: /public_html/
+
+          exclude: |
+            .git/**
+            .github/**
+            README.md

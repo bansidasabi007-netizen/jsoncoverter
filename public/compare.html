@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>JSON Compare</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Monaco Editor -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            min-height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: #f8fafc;
+            font-family: Inter, Arial, sans-serif;
+            min-height: 100dvh;
+            overflow-x: hidden;
+        }
+
+        /* =========================================
+           MAIN EDITOR AREA
+        ========================================= */
+
+        #editorArea {
+            position: relative;
+            width: 100%;
+            height: calc(100dvh - 190px);
+            min-height: 450px;
+        }
+
+        /* Tablet */
+        @media (min-width: 640px) {
+            #editorArea {
+                height: calc(100dvh - 175px);
+                min-height: 500px;
+            }
+        }
+
+        /* Desktop */
+        @media (min-width: 1024px) {
+            #editorArea {
+                height: calc(100dvh - 145px);
+                min-height: 560px;
+            }
+        }
+
+        #container,
+        #stacked {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* =========================================
+           MOBILE STACKED EDITORS
+        ========================================= */
+
+        #stacked {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        .pane {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .pane + .pane {
+            border-top: 2px solid #6366f1;
+        }
+
+        .pane-label {
+            flex: 0 0 auto;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 7px 10px;
+            background: #f1f5f9;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .pane-editor {
+            flex: 1 1 0;
+            min-height: 0;
+            width: 100%;
+        }
+
+        /* =========================================
+           MOBILE
+        ========================================= */
+
+        @media (max-width: 767px) {
+
+            #stacked {
+                display: flex;
+            }
+
+            /*
+              Desktop diff editor remains alive off-screen
+              so compare.js can continue calculating differences.
+            */
+            #container {
+                position: absolute;
+                left: -99999px;
+                top: 0;
+                width: 1000px;
+                height: 500px;
+                pointer-events: none;
+                visibility: hidden;
+            }
+        }
+
+        /* =========================================
+           DIFF COLORS
+        ========================================= */
+
+        .diff-changed {
+            background: #fef3c7;
+        }
+
+        .diff-added {
+            background: #dcfce7;
+        }
+
+        .diff-removed {
+            background: #fee2e2;
+        }
+
+        /* =========================================
+           TOOLBAR BUTTONS
+        ========================================= */
+
+        .tool-btn {
+            min-height: 42px;
+            padding: 0 14px;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+
+            transition:
+                background-color 0.15s ease,
+                transform 0.15s ease;
+        }
+
+        .tool-btn:active {
+            transform: scale(0.97);
+        }
+
+        /* Mobile buttons */
+        @media (max-width: 639px) {
+            .tool-btn {
+                min-height: 40px;
+                padding: 0 12px;
+                font-size: 13px;
+                width: 100%;
+            }
+        }
+
+        /* =========================================
+           SCROLLBAR
+        ========================================= */
+
+        ::-webkit-scrollbar {
+            width: 9px;
+            height: 9px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 30px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4f46e5;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+        }
+
+        /* =========================================
+           SMALL MOBILE HEIGHT FIX
+        ========================================= */
+
+        @media (max-width: 767px) and (max-height: 700px) {
+            #editorArea {
+                height: calc(100dvh - 190px);
+                min-height: 400px;
+            }
+        }
+    </style>
+</head>
+
+
+<body>
+
+    <!-- =========================================
+         NAVBAR
+    ========================================= -->
+
+    <nav class="bg-white border-b border-slate-200 px-3 sm:px-5 lg:px-8 py-3">
+
+        <div class="max-w-[1900px] mx-auto">
+
+            <!-- Top section -->
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+
+                <!-- Logo + Title -->
+                <div class="flex items-center gap-3 min-w-0">
+
+                    <!-- Logo -->
+                    <div
+                        class="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-lg bg-indigo-600 flex items-center justify-center text-white">
+                        ⚡
+                    </div>
+
+                    <!-- Title -->
+                    <div class="min-w-0">
+
+                        <h1 class="text-lg sm:text-xl lg:text-2xl font-bold text-slate-900 leading-tight truncate">
+                            JSON Compare
+                        </h1>
+
+                        <p class="text-xs sm:text-sm text-slate-500 truncate">
+                            Side by side compare
+                        </p>
+
+                    </div>
+
+                </div>
+
+
+                <!-- =====================================
+                     MOBILE / TABLET ACTIONS
+                ====================================== -->
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full lg:w-auto">
+
+                    <!-- Format -->
+                    <button
+                        id="formatBtn"
+                        onclick="toggleFormat()"
+                        class="tool-btn bg-indigo-600 hover:bg-indigo-700">
+                        <span>✨</span>
+                        <span>Format</span>
+                    </button>
+
+
+                    <!-- Clear -->
+                    <button
+                        onclick="clearCompare()"
+                        class="tool-btn bg-slate-600 hover:bg-slate-700">
+                        <span>🗑</span>
+                        <span>Clear</span>
+                    </button>
+
+
+                    <!-- Copy -->
+                    <button
+                        onclick="copyCompare()"
+                        class="tool-btn bg-emerald-600 hover:bg-emerald-700">
+                        <span>📋</span>
+                        <span>Copy</span>
+                    </button>
+
+
+                    <!-- Sort -->
+                    <button
+                        id="sortBtn"
+                        onclick="toggleSort()"
+                        class="tool-btn bg-amber-500 hover:bg-amber-600">
+                        <span>🔤</span>
+                        <span>Sort</span>
+                    </button>
+
+                </div>
+
+
+                <!-- =====================================
+                     BACK BUTTON
+                ====================================== -->
+
+                <div class="w-full lg:w-auto">
+
+                    <a
+                        href="index.html"
+                        class="tool-btn w-full lg:w-auto bg-indigo-600 hover:bg-indigo-700">
+                        <span>←</span>
+                        <span>Back</span>
+                    </a>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </nav>
+
+
+    <!-- =========================================
+         MAIN
+    ========================================= -->
+
+    <main class="w-full max-w-[1900px] mx-auto p-2 sm:p-4 lg:p-6">
+
+        <div
+            id="editorArea"
+            class="border border-slate-300 rounded-xl sm:rounded-2xl overflow-hidden shadow-lg bg-white">
+
+            <!-- =====================================
+                 DESKTOP / TABLET DIFF EDITOR
+            ====================================== -->
+
+            <div id="container"></div>
+
+
+            <!-- =====================================
+                 MOBILE STACKED EDITORS
+            ====================================== -->
+
+            <div id="stacked">
+
+                <!-- LEFT EDITOR -->
+                <div class="pane">
+
+                    <div class="pane-label flex items-center justify-between">
+
+                        <span>
+                            Left
+                        </span>
+
+                        <span class="text-[10px] text-slate-400">
+                            Original
+                        </span>
+
+                    </div>
+
+                    <div
+                        id="leftEditor"
+                        class="pane-editor">
+                    </div>
+
+                </div>
+
+
+                <!-- RIGHT EDITOR -->
+                <div class="pane">
+
+                    <div class="pane-label flex items-center justify-between">
+
+                        <span>
+                            Right
+                        </span>
+
+                        <span class="text-[10px] text-slate-400">
+                            Modified
+                        </span>
+
+                    </div>
+
+                    <div
+                        id="rightEditor"
+                        class="pane-editor">
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </main>
+
+
+    <!-- =========================================
+         SCRIPT
+    ========================================= -->
+
+    <script src="js/compare.js"></script>
+
+</body>
+
+</html>
